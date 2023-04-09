@@ -11,6 +11,21 @@
 void ethernet_in(buf_t *buf)
 {
     // TO-DO
+    if (buf->len < 46) {
+        printf("buffer too short\n");
+        return;
+    }
+    ether_hdr_t *hdr = (ether_hdr_t *)buf->data;
+    uint16_t proto = hdr->protocol16;
+    uint8_t *mac = hdr->dst;
+    if (buf_remove_header(buf, sizeof(ether_hdr_t)) == -1) {
+        printf("failed to remove header");
+        return;
+    }
+    if (net_in(buf, proto, mac) == -1) {
+        printf("failed to give upper buffer");
+        return;
+    }
 }
 /**
  * @brief 处理一个要发送的数据包
@@ -22,6 +37,24 @@ void ethernet_in(buf_t *buf)
 void ethernet_out(buf_t *buf, const uint8_t *mac, net_protocol_t protocol)
 {
     // TO-DO
+    if (buf->len < 46) {
+        if (buf_add_padding(buf, 46 - buf->len) == -1) {
+            printf("failed to add pad\n");
+            return ;
+        }
+    }
+    if (buf_add_header(buf, sizeof(ether_hdr_t)) == -1) {
+        printf("failed to add header\n");
+        return;
+    }
+    ether_hdr_t *hdr = (ether_hdr_t *)buf->data;
+    *hdr->dst = *mac;
+    *hdr->src = *net_if_mac;
+    hdr->protocol16 = swap16(protocol);
+    if (driver_send(buf) == -1) {
+        printf("failed to send buffer\n");
+        return;
+    }
 }
 /**
  * @brief 初始化以太网协议
