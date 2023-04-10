@@ -17,12 +17,13 @@ void ethernet_in(buf_t *buf)
     }
     ether_hdr_t *hdr = (ether_hdr_t *)buf->data;
     uint16_t proto = hdr->protocol16;
-    uint8_t *mac = hdr->dst;
+    uint8_t mac[NET_MAC_LEN];
+    memmove(mac, hdr->src, NET_MAC_LEN);
     if (buf_remove_header(buf, sizeof(ether_hdr_t)) == -1) {
         printf("failed to remove header");
         return;
     }
-    if (net_in(buf, proto, mac) == -1) {
+    if (net_in(buf, swap16(proto), mac) == -1) {
         printf("failed to give upper buffer");
         return;
     }
@@ -38,18 +39,20 @@ void ethernet_out(buf_t *buf, const uint8_t *mac, net_protocol_t protocol)
 {
     // TO-DO
     if (buf->len < 46) {
-        if (buf_add_padding(buf, 46 - buf->len) == -1) {
-            printf("failed to add pad\n");
-            return ;
-        }
+        // if (buf_add_padding(buf, 46 - buf->len) == -1) {
+        //     printf("failed to add pad\n");
+        //     return ;
+        // }
+        buf_add_padding(buf, 46 - buf->len);
     }
-    if (buf_add_header(buf, sizeof(ether_hdr_t)) == -1) {
-        printf("failed to add header\n");
-        return;
-    }
+    // if (buf_add_header(buf, sizeof(ether_hdr_t)) == -1) {
+    //     printf("failed to add header\n");
+    //     return;
+    // }
+    buf_add_header(buf, sizeof(ether_hdr_t));
     ether_hdr_t *hdr = (ether_hdr_t *)buf->data;
-    *hdr->dst = *mac;
-    *hdr->src = *net_if_mac;
+    memmove(hdr->dst, mac, NET_MAC_LEN);
+    memmove(hdr->src, net_if_mac, NET_MAC_LEN);
     hdr->protocol16 = swap16(protocol);
     if (driver_send(buf) == -1) {
         printf("failed to send buffer\n");
