@@ -125,6 +125,9 @@ void arp_in(buf_t *buf, uint8_t *src_mac)
         return;
     }
     map_set(&arp_table, pkt->sender_ip, src_mac);
+    
+    // TODO: extend buffer cache size in order not to loss buf
+    //  do nothing if cache valid
     buf_t *cache;
     if ((cache = (buf_t *)map_get(&arp_buf, pkt->sender_ip)) != NULL)
     {

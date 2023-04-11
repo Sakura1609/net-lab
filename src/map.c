@@ -12,6 +12,8 @@
  * @param value_constuctor 形如memcpy的构造函数，用于拷贝值到容器中，为NULL则使用memcpy
  */
 
+//TODO: change map to extend buffer tool.
+
 // size of buffer: 5(0~4)
 #define BUFFER_SIZE 5
 void map_init(map_t *map, size_t key_len, size_t value_len, size_t max_size, time_t timeout, map_constuctor_t value_constuctor)
