@@ -27,4 +27,5 @@ int map_set(map_t *map, const void *key, const void *value);
 void map_delete(map_t *map, const void *key);
 void map_foreach(map_t *map, map_entry_handler_t handler);
 
+
 #endif

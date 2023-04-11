@@ -11,7 +11,7 @@
 void ethernet_in(buf_t *buf)
 {
     // TO-DO
-    if (buf->len < 46) {
+    if (buf->len < sizeof(ether_hdr_t)) {
         printf("buffer too short\n");
         return;
     }
@@ -39,17 +39,15 @@ void ethernet_out(buf_t *buf, const uint8_t *mac, net_protocol_t protocol)
 {
     // TO-DO
     if (buf->len < 46) {
-        // if (buf_add_padding(buf, 46 - buf->len) == -1) {
-        //     printf("failed to add pad\n");
-        //     return ;
-        // }
-        buf_add_padding(buf, 46 - buf->len);
+        if (buf_add_padding(buf, 46 - buf->len) == -1) {
+            printf("failed to add pad\n");
+            return ;
+        }
     }
-    // if (buf_add_header(buf, sizeof(ether_hdr_t)) == -1) {
-    //     printf("failed to add header\n");
-    //     return;
-    // }
-    buf_add_header(buf, sizeof(ether_hdr_t));
+    if (buf_add_header(buf, sizeof(ether_hdr_t)) == -1) {
+        printf("failed to add header\n");
+        return;
+    }
     ether_hdr_t *hdr = (ether_hdr_t *)buf->data;
     memmove(hdr->dst, mac, NET_MAC_LEN);
     memmove(hdr->src, net_if_mac, NET_MAC_LEN);
