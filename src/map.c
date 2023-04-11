@@ -11,6 +11,9 @@
  * @param timeout 超时秒数，为0则永不超时
  * @param value_constuctor 形如memcpy的构造函数，用于拷贝值到容器中，为NULL则使用memcpy
  */
+
+// size of buffer: 5(0~4)
+#define BUFFER_SIZE 5
 void map_init(map_t *map, size_t key_len, size_t value_len, size_t max_size, time_t timeout, map_constuctor_t value_constuctor)
 {
     if (max_size == 0 || max_size * (key_len + value_len + sizeof(time_t)) > MAP_MAX_LEN)
@@ -75,10 +78,10 @@ void *map_get(map_t *map, const void *key)
 {
     if (key == NULL)
         return NULL;
-    for (size_t i = 0; i < map->max_size; i++)
+    for (size_t i = 0; i < map->max_size / BUFFER_SIZE; i += 1)
     {
-        uint8_t *entry = map_entry_get(map, i);
-        if (map_entry_valid(map, entry) && !memcmp(key, entry, map->key_len))
+        uint8_t *entry = map_entry_get(map, i * BUFFER_SIZE);
+        if (map_entry_valid(map, entry) && !memcmp(key, entry, map->key_len)) 
             return entry + map->key_len;
     }
     return NULL;
