@@ -59,6 +59,8 @@ void arp_print()
 void arp_req(uint8_t *target_ip)
 {
     // TO-DO
+
+    // 生成新的arp包，广播，仅用于寻找目标ip，因此长度只有一个arp_pkt_t结构体大小
     buf_init(&txbuf, sizeof(arp_pkt_t));
     arp_pkt_t *pkt = (arp_pkt_t *)txbuf.data;
     *pkt = arp_init_pkt;
@@ -76,6 +78,8 @@ void arp_req(uint8_t *target_ip)
 void arp_resp(uint8_t *target_ip, uint8_t *target_mac)
 {
     // TO-DO
+
+    // 生成新的arp包，发往目标，告知目标自己的mac与ip，长度只有一个arp_pkt_t大小
     buf_init(&txbuf, sizeof(arp_pkt_t));
     arp_pkt_t *pkt = (arp_pkt_t *)txbuf.data;
     *pkt = arp_init_pkt;
@@ -94,6 +98,8 @@ void arp_resp(uint8_t *target_ip, uint8_t *target_mac)
 void arp_in(buf_t *buf, uint8_t *src_mac)
 {
     // TO-DO
+
+    // 判断包长度是否合法，至少为一个协议头大小
     if (buf->len < sizeof(arp_pkt_t))
     {
         printf("invalid pkg length, abort!\n");
@@ -107,6 +113,7 @@ void arp_in(buf_t *buf, uint8_t *src_mac)
     uint8_t pro_len = pkt->pro_len;
     uint16_t opcode16 = pkt->opcode16;
 
+    // 判断协议是否合法
     if (hw_type16 != constswap16(ARP_HW_ETHER) || pro_type16 != constswap16(NET_PROTOCOL_IP) ||
         hw_len != NET_MAC_LEN || pro_len != NET_IP_LEN || 
         (opcode16 != constswap16(ARP_REPLY) && opcode16 != constswap16(ARP_REQUEST)))
@@ -114,17 +121,19 @@ void arp_in(buf_t *buf, uint8_t *src_mac)
         printf("invalid pkg header, abort!\n");
         return;
     }
+
+    // 填写arp ip表，记录ip与mac对应信息
     map_set(&arp_table, pkt->sender_ip, src_mac);
     
-    // TODO: extend buffer cache size in order not to loss buf
-    //  do nothing if cache valid
-    buf_t *cache;
-    if ((cache = (buf_t *)map_get(&arp_buf, pkt->sender_ip)) != NULL)
-    {
-        ethernet_out(cache, src_mac, NET_PROTOCOL_IP);
-        map_delete(&arp_buf, pkt->sender_ip);
-    }
+    // 查找arp 数据包表，如果存在缓存则直接发送，并删除。
+    buf_t *cache = (buf_t *)map_get(&arp_buf, pkt->sender_ip);
+        if (cache) {
+            ethernet_out(cache, src_mac, NET_PROTOCOL_IP);
+            map_delete(&arp_buf, pkt->sender_ip);
+            return;
+        }
 
+    // 否则判断是否为arp请求报文，进行发送
     if (pkt->opcode16 == constswap16(ARP_REQUEST) && !memcmp(pkt->target_ip, net_if_ip, NET_IP_LEN))
     {
         arp_resp(pkt->sender_ip, src_mac);
@@ -145,21 +154,23 @@ void arp_out(buf_t *buf, uint8_t *ip)
     
     uint8_t *dst_mac;
 
-    
+    // 查表，直接发送
     if ((dst_mac = (uint8_t *)map_get(&arp_table, ip)) != NULL)
     {
         ethernet_out(buf, dst_mac, NET_PROTOCOL_IP);
         return;
     }
 
+    // 不在arp表中，查看cache中是否有数据。
+    // 若cache中无数据，则说明是新ip，发送获取ip的请求
     buf_t *cache = (buf_t *)map_get(&arp_buf, ip);
 
-    map_set(&arp_buf, ip, buf);
     
     if (!cache)
         arp_req(ip);
-
-    return;
+    
+    // 使用cache容量为1， 则只有cache中无内容时才将数据填入cache
+    map_set(&arp_buf, ip, buf);
 }
 
 /**
@@ -169,7 +180,7 @@ void arp_out(buf_t *buf, uint8_t *ip)
 void arp_init()
 {
     map_init(&arp_table, NET_IP_LEN, NET_MAC_LEN, 0, ARP_TIMEOUT_SEC, NULL, 1);
-    map_init(&arp_buf, NET_IP_LEN, sizeof(buf_t), 0, ARP_MIN_INTERVAL, buf_copy, 10);
+    map_init(&arp_buf, NET_IP_LEN, sizeof(buf_t), 0, ARP_MIN_INTERVAL, buf_copy, 1);
     net_add_protocol(NET_PROTOCOL_ARP, arp_in);
     arp_req(net_if_ip);
 }
