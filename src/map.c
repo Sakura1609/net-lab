@@ -83,8 +83,16 @@ void *map_get(map_t *map, const void *key)
     for (size_t i = 0; i < map->max_size / BUFFER_SIZE; i += 1)
     {
         uint8_t *entry = map_entry_get(map, i * BUFFER_SIZE);
-        if (map_entry_valid(map, entry) && !memcmp(key, entry, map->key_len)) 
-            return entry + map->key_len;
+        if (memcmp(key, entry, map->key_len)) 
+            continue;
+        for (size_t j = 0; j < BUFFER_SIZE; j++) {
+            size_t offset = i * BUFFER_SIZE + j;
+            uint8_t *entry_clone = map_entry_get(map, offset);
+            if (map_entry_valid(map, entry)) {
+                return entry_clone + map->key_len;
+            }
+        }
+        return entry + map->key_len;
     }
     return NULL;
 }
