@@ -38,7 +38,7 @@ void arp_out(buf_t *buf, uint8_t *ip)
 
 void arp_init()
 {
-    map_init(&arp_table, NET_IP_LEN, NET_MAC_LEN, 0, ARP_TIMEOUT_SEC, NULL);
-    map_init(&arp_buf, NET_IP_LEN, sizeof(buf_t), 0, ARP_MIN_INTERVAL, buf_copy);
+    map_init(&arp_table, NET_IP_LEN, NET_MAC_LEN, 0, ARP_TIMEOUT_SEC, NULL, 1);
+    map_init(&arp_buf, NET_IP_LEN, sizeof(buf_t), 0, ARP_MIN_INTERVAL, buf_copy, 10);
     net_add_protocol(NET_PROTOCOL_ARP, arp_in);
 }

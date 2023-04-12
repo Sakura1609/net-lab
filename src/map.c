@@ -15,8 +15,8 @@
 //TODO: change map to extend buffer tool.
 
 // size of buffer: 5(0~4)
-#define BUFFER_SIZE 5
-void map_init(map_t *map, size_t key_len, size_t value_len, size_t max_size, time_t timeout, map_constuctor_t value_constuctor)
+
+void map_init(map_t *map, size_t key_len, size_t value_len, size_t max_size, time_t timeout, map_constuctor_t value_constuctor, size_t buffer_size)
 {
     if (max_size == 0 || max_size * (key_len + value_len + sizeof(time_t)) > MAP_MAX_LEN)
         max_size = MAP_MAX_LEN / (key_len + value_len + sizeof(time_t));
@@ -29,6 +29,7 @@ void map_init(map_t *map, size_t key_len, size_t value_len, size_t max_size, tim
     map->max_size = max_size;
     map->timeout = timeout;
     map->value_constuctor = value_constuctor;
+    map->buffer_size = buffer_size;
 }
 
 /**
@@ -80,21 +81,46 @@ void *map_get(map_t *map, const void *key)
 {
     if (key == NULL)
         return NULL;
-    for (size_t i = 0; i < map->max_size / BUFFER_SIZE; i += 1)
+    for (size_t i = 0; i < map->max_size; i += map->buffer_size)
     {
-        uint8_t *entry = map_entry_get(map, i * BUFFER_SIZE);
+        uint8_t *entry = map_entry_get(map, i);
         if (memcmp(key, entry, map->key_len)) 
             continue;
-        for (size_t j = 0; j < BUFFER_SIZE; j++) {
-            size_t offset = i * BUFFER_SIZE + j;
-            uint8_t *entry_clone = map_entry_get(map, offset);
-            if (map_entry_valid(map, entry)) {
-                return entry_clone + map->key_len;
-            }
+        
+        for(size_t j = 0; j < map->buffer_size; j++) {
+            entry = map_entry_get(map, i + j);
+            if (map_entry_valid(map, entry)) 
+                return entry + map->key_len;
         }
-        return entry + map->key_len;
     }
     return NULL;
+}
+
+/**
+ * @brief 向指定值的key中插入一个值，需要先保证key在map中
+ * 
+ * @param map 要获取的map
+ * @param key 键指针
+ * @param value 值指针
+ * @return int 成功为0， 失败为-1
+*/
+int map_insert(map_t *map, const void *key, const void *value) {
+    for (size_t i = 0; i < map->max_size; i += map->buffer_size) {
+        uint8_t *entry = map_entry_get(map, i);
+        if (memcmp(key, entry, map->key_len)) 
+            continue;
+        
+        for(size_t j = 1; j < map->buffer_size; j++) {
+            entry = map_entry_get(map, i + j);
+            if (!map_entry_valid(map, entry)) {
+                memcpy(entry, key, map->key_len);
+                map->value_constuctor(entry + map->key_len, value, map->value_len);
+                *(time_t *)(entry + map->key_len + map->value_len) = time(NULL);
+                return 0;
+            }
+        }
+    }
+    return -1;
 }
 
 /**
@@ -110,13 +136,15 @@ int map_set(map_t *map, const void *key, const void *value)
     uint8_t *old_value = map_get(map, key);
     if (old_value)
     {
+        if (!map_insert(map, key, value))
+            return 0;
         map->value_constuctor(old_value, value, map->value_len);
         *(time_t *)(old_value + map->value_len) = time(NULL);
         return 0;
     }
-    if (map->size == map->max_size)
+    if (map->size * map->buffer_size == map->max_size)
         return -1;
-    for (size_t i = 0; i < map->max_size; i++)
+    for (size_t i = 0; i < map->max_size; i += map->buffer_size)
     {
         uint8_t *entry = map_entry_get(map, i);
         if (!map_entry_valid(map, entry))
@@ -140,12 +168,16 @@ int map_set(map_t *map, const void *key, const void *value)
  */
 void map_delete(map_t *map, const void *key)
 {
-    uint8_t *value = map_get(map, key);
-    if (value)
-    {
-        *(time_t *)(value + map->value_len) = 0;
-        map->size--;
+    size_t delete_flag = 0;
+    for (size_t i = 0; i < map->buffer_size; i++) {
+        uint8_t *value = map_get(map, key);
+        if (value) {
+            delete_flag = 1;
+            *(time_t *)(value + map->value_len) = 0;
+        }
     }
+    if (delete_flag)
+        map->size--;
 }
 
 /**

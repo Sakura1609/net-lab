@@ -59,12 +59,7 @@ void arp_print()
 void arp_req(uint8_t *target_ip)
 {
     // TO-DO
-    buf_init(&txbuf, ETHERNET_MAX_TRANSPORT_UNIT + sizeof(arp_pkt_t));
-    if (buf_add_header(&txbuf, sizeof(arp_pkt_t)) == -1)
-    {
-        printf("failed to add header\n");
-        return;
-    }
+    buf_init(&txbuf, sizeof(arp_pkt_t));
     arp_pkt_t *pkt = (arp_pkt_t *)txbuf.data;
     *pkt = arp_init_pkt;
     memmove(pkt->target_ip, target_ip, NET_IP_LEN);
@@ -81,12 +76,7 @@ void arp_req(uint8_t *target_ip)
 void arp_resp(uint8_t *target_ip, uint8_t *target_mac)
 {
     // TO-DO
-    buf_init(&txbuf, ETHERNET_MAX_TRANSPORT_UNIT + sizeof(arp_pkt_t));
-    if (buf_add_header(&txbuf, sizeof(arp_pkt_t)) == -1)
-    {
-        printf("failed to add header\n");
-        return;
-    }
+    buf_init(&txbuf, sizeof(arp_pkt_t));
     arp_pkt_t *pkt = (arp_pkt_t *)txbuf.data;
     *pkt = arp_init_pkt;
     memmove(pkt->target_mac, target_mac, NET_MAC_LEN);
@@ -131,11 +121,11 @@ void arp_in(buf_t *buf, uint8_t *src_mac)
     buf_t *cache;
     if ((cache = (buf_t *)map_get(&arp_buf, pkt->sender_ip)) != NULL)
     {
-        ethernet_out(cache, src_mac, NET_PROTOCOL_ARP);
+        ethernet_out(cache, src_mac, NET_PROTOCOL_IP);
         map_delete(&arp_buf, pkt->sender_ip);
     }
 
-    if (pkt->opcode16 == constswap16(ARP_REQUEST) && pkt->target_ip == net_if_ip)
+    if (pkt->opcode16 == constswap16(ARP_REQUEST) && !memcmp(pkt->target_ip, net_if_ip, NET_IP_LEN))
     {
         arp_resp(pkt->sender_ip, src_mac);
         return;
@@ -152,23 +142,23 @@ void arp_in(buf_t *buf, uint8_t *src_mac)
 void arp_out(buf_t *buf, uint8_t *ip)
 {
     // TO-DO
+    
     uint8_t *dst_mac;
+
+    
     if ((dst_mac = (uint8_t *)map_get(&arp_table, ip)) != NULL)
     {
-        ethernet_out(buf, dst_mac, NET_PROTOCOL_ARP);
-        return;
-    }
-    buf_t *cache;
-    if (!(cache = (buf_t *)map_get(&arp_buf, ip)))
-    {
-        map_set(&arp_buf, ip, buf);
-        arp_req(ip);
+        ethernet_out(buf, dst_mac, NET_PROTOCOL_IP);
         return;
     }
 
-    // TODO: extend buffer cache size in order not to loss buf
-    //  do nothing if cache valid
-    printf("loss pkg\n");
+    buf_t *cache = (buf_t *)map_get(&arp_buf, ip);
+
+    map_set(&arp_buf, ip, buf);
+    
+    if (!cache)
+        arp_req(ip);
+
     return;
 }
 
@@ -178,8 +168,8 @@ void arp_out(buf_t *buf, uint8_t *ip)
  */
 void arp_init()
 {
-    map_init(&arp_table, NET_IP_LEN, NET_MAC_LEN, 0, ARP_TIMEOUT_SEC, NULL);
-    map_init(&arp_buf, NET_IP_LEN, sizeof(buf_t), 0, ARP_MIN_INTERVAL, buf_copy);
+    map_init(&arp_table, NET_IP_LEN, NET_MAC_LEN, 0, ARP_TIMEOUT_SEC, NULL, 1);
+    map_init(&arp_buf, NET_IP_LEN, sizeof(buf_t), 0, ARP_MIN_INTERVAL, buf_copy, 10);
     net_add_protocol(NET_PROTOCOL_ARP, arp_in);
     arp_req(net_if_ip);
 }
