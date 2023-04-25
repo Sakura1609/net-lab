@@ -51,7 +51,7 @@ void udp_out(buf_t *buf, uint16_t src_port, uint8_t *dst_ip, uint16_t dst_port)
  */
 void udp_init()
 {
-    map_init(&udp_table, sizeof(uint16_t), sizeof(udp_handler_t), 0, 0, NULL, 1);
+    map_init(&udp_table, sizeof(uint16_t), sizeof(udp_handler_t), 0, 0, NULL);
     net_add_protocol(NET_PROTOCOL_UDP, udp_in);
 }
 

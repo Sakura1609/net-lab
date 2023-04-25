@@ -3,6 +3,7 @@
 #include "driver.h"
 #include "arp.h"
 #include "ip.h"
+
 /**
  * @brief 处理一个收到的数据包
  * 
@@ -16,14 +17,14 @@ void ethernet_in(buf_t *buf)
         return;
     }
     ether_hdr_t *hdr = (ether_hdr_t *)buf->data;
-    uint16_t proto = hdr->protocol16;
+    uint16_t proto = swap16(hdr->protocol16);
     uint8_t mac[NET_MAC_LEN];
     memmove(mac, hdr->src, NET_MAC_LEN);
     if (buf_remove_header(buf, sizeof(ether_hdr_t)) == -1) {
         printf("failed to remove header");
         return;
     }
-    if (net_in(buf, swap16(proto), mac) == -1) {
+    if (net_in(buf, proto, mac) == -1) {
         printf("failed to give upper buffer");
         return;
     }

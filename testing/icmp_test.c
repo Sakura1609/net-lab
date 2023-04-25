@@ -50,6 +50,9 @@ int main(int argc, char* argv[]){
         while((ret = driver_recv(&buf)) > 0){
                 printf("\b\b%02d",i);
                 fprintf(control_flow,"\nRound %02d -----------------------------\n",i++);
+                if (i == 8) {
+                        printf("1\n");
+                }
                 if(memcmp(buf.data,my_mac,6) && memcmp(buf.data,boardcast_mac,6)){
                         buf_t buf2;
                         buf_copy(&buf2, &buf, 0);

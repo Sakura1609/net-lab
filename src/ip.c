@@ -4,8 +4,7 @@
 #include "arp.h"
 #include "icmp.h"
 
-size_t id = -1;
-size_t origin_len = 0;
+static size_t id = -1;
 /**
  * @brief 处理一个收到的数据包
  * 
@@ -23,8 +22,8 @@ void ip_in(buf_t *buf, uint8_t *src_mac)
     // check head
     ip_hdr_t *iph = (ip_hdr_t *)buf->data;
     uint8_t version = iph->version;
-    uint8_t len = swap16(iph->total_len16);
-    if (version != 4 || buf->len < len) {
+    uint16_t len = swap16(iph->total_len16);
+    if (version != IP_VERSION_4 || buf->len < len) {
         printf("invalid pkg header, abort\n");
         return;
     }
@@ -36,18 +35,28 @@ void ip_in(buf_t *buf, uint8_t *src_mac)
         return;
     }
     iph->hdr_checksum16 = origin_check;
+
+    uint8_t src_ip[NET_IP_LEN];
+    memmove(src_ip, iph->src_ip, NET_IP_LEN);
+
+    if (--iph->ttl == 0)
+        icmp_unreachable(buf, src_ip, ICMP_CODE_PROTOCOL_UNREACH);
     
-    if (iph->dst_ip != net_if_ip) {
+    
+    if (memcmp(iph->dst_ip, net_if_ip, NET_IP_LEN)) {
+        
         return;
     }
 
     if (buf->len > len)
         buf_remove_padding(buf, buf->len - len);
     uint8_t protocal = iph->protocol;
-    uint8_t src_ip[NET_IP_LEN];
-    memmove(src_ip, iph->src_ip, NET_IP_LEN);
+    
     buf_remove_header(buf, sizeof(ip_hdr_t));
-    net_in(buf, protocal, src_ip);
+    if (protocal == NET_PROTOCOL_UDP || protocal == NET_PROTOCOL_ICMP || protocal == NET_PROTOCOL_TCP)
+        net_in(buf, protocal, src_ip);
+    else 
+        icmp_unreachable(buf, src_ip, ICMP_CODE_PROTOCOL_UNREACH);
 }
 
 /**
@@ -93,7 +102,6 @@ void ip_out(buf_t *buf, uint8_t *ip, net_protocol_t protocol)
 {
     // TO-DO
     size_t len = buf->len;
-    origin_len = buf->len;
     size_t max_data =  ETHERNET_MAX_TRANSPORT_UNIT - sizeof(ip_hdr_t);
     uint16_t offset = 0;
     id++;

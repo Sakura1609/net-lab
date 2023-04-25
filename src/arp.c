@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "net.h"
 #include "arp.h"
+#include "ip.h"
 #include "ethernet.h"
 /**
  * @brief 初始的arp包
@@ -166,11 +167,13 @@ void arp_out(buf_t *buf, uint8_t *ip)
     buf_t *cache = (buf_t *)map_get(&arp_buf, ip);
 
     
-    if (!cache)
-        arp_req(ip);
-    
+    if (cache)
+        return;
+
     // 使用cache容量为1， 则只有cache中无内容时才将数据填入cache
     map_set(&arp_buf, ip, buf);
+    
+    arp_req(ip);
 }
 
 /**
@@ -179,8 +182,8 @@ void arp_out(buf_t *buf, uint8_t *ip)
  */
 void arp_init()
 {
-    map_init(&arp_table, NET_IP_LEN, NET_MAC_LEN, 0, ARP_TIMEOUT_SEC, NULL, 1);
-    map_init(&arp_buf, NET_IP_LEN, sizeof(buf_t), 0, ARP_MIN_INTERVAL, buf_copy, 1);
+    map_init(&arp_table, NET_IP_LEN, NET_MAC_LEN, 0, ARP_TIMEOUT_SEC, NULL);
+    map_init(&arp_buf, NET_IP_LEN, sizeof(buf_t), 0, ARP_MIN_INTERVAL, buf_copy);
     net_add_protocol(NET_PROTOCOL_ARP, arp_in);
     arp_req(net_if_ip);
 }

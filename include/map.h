@@ -21,7 +21,7 @@ typedef struct map //协议栈的通用泛型map，即键值对的容器，支�
     uint8_t data[MAP_MAX_LEN];         //数据
 } map_t;
 
-void map_init(map_t *map, size_t key_len, size_t value_len, size_t max_len, time_t timeout, map_constuctor_t value_constuctor, size_t buffer_size);
+void map_init(map_t *map, size_t key_len, size_t value_len, size_t max_len, time_t timeout, map_constuctor_t value_constuctor);
 size_t map_size(map_t *map);
 void *map_get(map_t *map, const void *key);
 int map_set(map_t *map, const void *key, const void *value);
