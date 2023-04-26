@@ -31,20 +31,17 @@ void ip_in(buf_t *buf, uint8_t *src_mac)
     iph->hdr_checksum16 = 0;
     uint16_t res = checksum16((uint16_t *)iph, sizeof(ip_hdr_t));
     if (res != origin_check) {
-        printf("checksum failed\n");
+        printf("ip_in checksum failed\n");
         return;
     }
     iph->hdr_checksum16 = origin_check;
 
     uint8_t src_ip[NET_IP_LEN];
     memmove(src_ip, iph->src_ip, NET_IP_LEN);
-
-    if (--iph->ttl == 0)
-        icmp_unreachable(buf, src_ip, ICMP_CODE_PROTOCOL_UNREACH);
     
     
     if (memcmp(iph->dst_ip, net_if_ip, NET_IP_LEN)) {
-        
+        // icmp_unreachable(buf, src_ip, ICMP_CODE_PROTOCOL_UNREACH);
         return;
     }
 
@@ -52,11 +49,12 @@ void ip_in(buf_t *buf, uint8_t *src_mac)
         buf_remove_padding(buf, buf->len - len);
     uint8_t protocal = iph->protocol;
     
-    buf_remove_header(buf, sizeof(ip_hdr_t));
-    if (protocal == NET_PROTOCOL_UDP || protocal == NET_PROTOCOL_ICMP || protocal == NET_PROTOCOL_TCP)
-        net_in(buf, protocal, src_ip);
-    else 
+    if (protocal != NET_PROTOCOL_UDP && protocal != NET_PROTOCOL_ICMP) {
         icmp_unreachable(buf, src_ip, ICMP_CODE_PROTOCOL_UNREACH);
+        return;
+    }
+    buf_remove_header(buf, sizeof(ip_hdr_t));
+    net_in(buf, protocal, src_ip);
 }
 
 /**

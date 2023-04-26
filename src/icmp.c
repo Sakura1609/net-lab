@@ -55,17 +55,18 @@ void icmp_in(buf_t *buf, uint8_t *src_ip)
 void icmp_unreachable(buf_t *recv_buf, uint8_t *src_ip, icmp_code_t code)
 {
     // TO-DO
-    buf_init(&txbuf, sizeof(icmp_code_t) + sizeof(ip_hdr_t) + 8);
+    buf_init(&txbuf, sizeof(icmp_code_t) + sizeof(ip_hdr_t) + 12);
     icmp_hdr_t *ich = (icmp_hdr_t *)txbuf.data;
-    ip_hdr_t *ih = (ip_hdr_t *)recv_buf->data;
+    // ip_hdr_t *ih = (ip_hdr_t *)recv_buf->data;
     ich->checksum16 = 0;
     ich->type = ICMP_TYPE_UNREACH;
     ich->code = code;
     ich->id16 = 0;
     ich->seq16 = 0;
-    memmove(txbuf.data + sizeof(icmp_code_t), recv_buf->data, sizeof(ip_hdr_t) + 8);
-    ich->checksum16 = checksum16((uint16_t *)ich, sizeof(icmp_code_t) + sizeof(ip_hdr_t) + 8);
-    ip_out(&txbuf, src_ip, ih->protocol);
+    // txbuf.data += 2;
+    memmove(txbuf.data + sizeof(icmp_code_t) + 4, recv_buf->data, sizeof(ip_hdr_t) + 8);
+    ich->checksum16 = checksum16((uint16_t *)ich, sizeof(icmp_code_t) + sizeof(ip_hdr_t) + 12);
+    ip_out(&txbuf, src_ip, NET_PROTOCOL_ICMP);
     return;
 }
 
