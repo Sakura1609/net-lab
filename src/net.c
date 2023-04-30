@@ -35,7 +35,7 @@ buf_t rxbuf, txbuf; //一个buf足够单线程使用
  * @brief 初始化协议栈
  * 
  */
-int net_init()
+int   net_init()
 {
     map_init(&net_table, sizeof(uint16_t), sizeof(net_handler_t), 0, 0, NULL);
     if (driver_open() == -1)

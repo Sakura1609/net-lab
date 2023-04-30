@@ -44,19 +44,19 @@ int main(int argc, char const *argv[])
 #ifdef UDP
     udp_open(60000, udp_handler); //注册端口的udp监听回调
 #endif
-#ifdef TCP
-    tcp_open(61000, tcp_handler); //注册端口的tcp监听回调
-#endif
-#ifdef HTTP
-    http_server_open(62000);
-#endif
+// #ifdef TCP
+//     tcp_open(61000, tcp_handler); //注册端口的tcp监听回调
+// #endif
+// #ifdef HTTP
+//     http_server_open(62000);
+// #endif
     while (1) 
 	{
         //一次主循环
         net_poll(); //一次主循环
-#ifdef HTTP
-        http_server_run();
-#endif
+// #ifdef HTTP
+//         http_server_run();
+// #endif
         // 节约用电
         struct timespec sleepTime = { 0, 1000000 };
         nanosleep(&sleepTime, NULL);
