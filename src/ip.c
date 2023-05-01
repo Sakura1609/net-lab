@@ -47,14 +47,15 @@ void ip_in(buf_t *buf, uint8_t *src_mac)
 
     if (buf->len > len)
         buf_remove_padding(buf, buf->len - len);
+
     uint8_t protocal = iph->protocol;
-    
-    if (protocal != NET_PROTOCOL_UDP && protocal != NET_PROTOCOL_ICMP) {
-        icmp_unreachable(buf, src_ip, ICMP_CODE_PROTOCOL_UNREACH);
-        return;
-    }
     buf_remove_header(buf, sizeof(ip_hdr_t));
-    net_in(buf, protocal, src_ip);
+    
+    if (net_in(buf, protocal, src_ip) == -1) {
+        buf_add_header(buf, sizeof(ip_hdr_t));
+        memmove(buf->data, iph, sizeof(ip_hdr_t));
+        icmp_unreachable(buf, src_ip, ICMP_CODE_PROTOCOL_UNREACH);
+    }
 }
 
 /**

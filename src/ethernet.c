@@ -25,7 +25,7 @@ void ethernet_in(buf_t *buf)
         return;
     }
     if (net_in(buf, proto, mac) == -1) {
-        printf("failed to give upper buffer");
+        // printf("failed to give upper buffer");
         return;
     }
 }

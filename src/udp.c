@@ -7,7 +7,6 @@
  * 
  */
 map_t udp_table;
-extern size_t id;
 
 /**
  * @brief udp伪校验和计算
@@ -20,25 +19,26 @@ extern size_t id;
 static uint16_t udp_checksum(buf_t *buf, uint8_t *src_ip, uint8_t *dst_ip)
 {
     // TO-DO
+    uint16_t len = swap16(buf->len);
+
     buf_add_header(buf, sizeof(udp_peso_hdr_t));
-    ip_hdr_t ip_head;
-    memmove(&ip_head, buf->data, sizeof(ip_hdr_t));
+    
     udp_peso_hdr_t *uph = (udp_peso_hdr_t *)buf->data;
+    udp_peso_hdr_t tmp = *uph;
     memmove(uph->dst_ip, dst_ip, NET_IP_LEN);
     memmove(uph->src_ip, src_ip, NET_IP_LEN);
-    uph->protocol = ip_head.protocol;
-    uph->total_len16 = buf->len - sizeof(udp_peso_hdr_t);
+    uph->placeholder = 0;
+    uph->protocol = NET_PROTOCOL_UDP;
+    uph->total_len16 = len;
 
-    size_t len = buf->len;
-    if (len % 2) 
-        buf_add_padding(buf, 1);
+    size_t padding_len = buf->len % 2;
+    buf_add_padding(buf, padding_len);
     
     uint16_t checksum = checksum16((uint16_t *)buf->data, buf->len);
     
-    if (len % 2) 
-        buf_remove_padding(buf, 1);
+    buf_remove_padding(buf, padding_len);
 
-    memmove(buf->data, &ip_head, sizeof(ip_hdr_t));
+    *uph = tmp;
     buf_remove_header(buf, sizeof(udp_peso_hdr_t));
 
     return checksum;
@@ -67,11 +67,12 @@ void udp_in(buf_t *buf, uint8_t *src_ip)
         return;
     }
 
-    udp_handler_t *handler = (udp_handler_t *)map_get(&udp_table, &uh->dst_port16);
+    uint16_t dst_port16 = swap16(uh->dst_port16);
+    udp_handler_t *handler = (udp_handler_t *)map_get(&udp_table, &dst_port16);
 
     if (handler) {
         buf_remove_header(buf, sizeof(udp_hdr_t));
-        (*handler)(buf->data, uh->total_len16, src_ip, uh->src_port16);
+        (*handler)(buf->data, buf->len, src_ip, dst_port16);
         return;
     }
 
@@ -109,13 +110,13 @@ void udp_out(buf_t *buf, uint16_t src_port, uint8_t *dst_ip, uint16_t dst_port)
     
     buf_add_header(buf, sizeof(udp_hdr_t));
     udp_hdr_t *uh = (udp_hdr_t *)buf->data;
-    uh->dst_port16 = dst_port;
-    uh->src_port16 = src_port;
+    uh->dst_port16 = swap16(dst_port);
+    uh->src_port16 = swap16(src_port);
     uh->checksum16 = 0;
-    uh->total_len16 = buf->len;
+    uh->total_len16 = swap16(buf->len);
 
     uh->checksum16 = udp_checksum(buf, net_if_ip, dst_ip);
-    ip_out(buf, dst_ip, NET_PROTOCOL_TCP);
+    ip_out(buf, dst_ip, NET_PROTOCOL_UDP);
 }
 
 /**
