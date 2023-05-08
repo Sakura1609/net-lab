@@ -184,7 +184,7 @@ static uint16_t tcp_write_to_buf(tcp_connect_t* connect, buf_t* buf) {
  * @param flags
  */
 static void tcp_send(buf_t* buf, tcp_connect_t* connect, tcp_flags_t flags) {
-    // printf("<< tcp send >> sz=%zu\n", buf->len);
+    printf("<< tcp send >> sz=%zu\n", buf->len);
     display_flags(flags);
     size_t prev_len = buf->len;
     buf_add_header(buf, sizeof(tcp_hdr_t));
@@ -336,7 +336,7 @@ void tcp_in(buf_t* buf, uint8_t* src_ip) {
     4、调用map_get函数，根据destination port查找对应的handler函数
     */
 
-    tcp_handler_t handler = (tcp_handler_t)map_get(&tcp_table, &dst_port16);
+    tcp_handler_t *handler = (tcp_handler_t *)map_get(&tcp_table, &dst_port16);
     if (!handler) {
         buf_add_header(buf, sizeof(ip_hdr_t));
         icmp_unreachable(buf, src_ip, ICMP_CODE_PORT_UNREACH);
@@ -352,11 +352,12 @@ void tcp_in(buf_t* buf, uint8_t* src_ip) {
     6、调用map_get函数，根据key查找一个tcp_connect_t* connect，
     如果没有找到，则调用map_set建立新的链接，并设置为CONNECT_LISTEN状态，然后调用mag_get获取到该链接。
     */
-
     tcp_connect_t* connect = (tcp_connect_t *)map_get(&connect_table, &key);
     if (!connect) {
-        memmove(connect, &CONNECT_LISTEN, sizeof(tcp_connect_t));
+        connect = (tcp_connect_t *)malloc(sizeof(tcp_connect_t));
+        *connect = CONNECT_LISTEN;
         map_set(&connect_table, &key, connect);
+        connect = (tcp_connect_t *)map_get(&connect_table, &key);
     }
 
     /*
@@ -374,7 +375,7 @@ void tcp_in(buf_t* buf, uint8_t* src_ip) {
             local_port、remote_port、ip、
             unack_seq（设为随机值）、由于是对syn的ack应答包，next_seq与unack_seq一致
             ack设为对方的sequence number+1
-            设置remote_win为对方的窗口大小，注意大小端转换
+            设置remote_win为对方的窗口大小，注意大小端转换(。。。其实是不需要转换的因为在send函数里完成了转换)
         （5）调用buf_init初始化txbuf
         （6）调用tcp_send将txbuf发送出去，也就是回复一个tcp_flags_ack_syn（SYN+ACK）报文
         （7）处理结束，返回。
@@ -387,12 +388,13 @@ void tcp_in(buf_t* buf, uint8_t* src_ip) {
             reset_tcp(connect, seq_num32);
         init_tcp_connect_rcvd(connect);
         connect->state = TCP_SYN_RCVD;
-        connect->local_port = swap16(dst_port16);
-        connect->remote_port = swap16(src_port16);
-        connect->unack_seq = swap32((uint32_t)rand());
+        connect->local_port = dst_port16;
+        connect->remote_port = src_port16;
+        memmove(connect->ip, src_ip, NET_IP_LEN);
+        connect->unack_seq = (uint32_t)rand();
         connect->next_seq = connect->unack_seq;
-        connect->ack = swap32(seq_num32 + 1);
-        connect->remote_win = swap16(window_size16);
+        connect->ack = seq_num32 + 1;
+        connect->remote_win = window_size16;
         buf_init(&txbuf, 0);
         tcp_send(&txbuf, connect, tcp_flags_ack_syn);
         return;
@@ -441,7 +443,7 @@ void tcp_in(buf_t* buf, uint8_t* src_ip) {
         if (flags.ack) {
             connect->unack_seq++;
             connect->state = TCP_ESTABLISHED;
-            handler(connect, TCP_CONN_CONNECTED);
+            (*handler)(connect, TCP_CONN_CONNECTED);
         }
         break;
 
@@ -497,10 +499,11 @@ void tcp_in(buf_t* buf, uint8_t* src_ip) {
         }
 
         if (buf->len) {
-            connect->ack += buf->len;
             tcp_send(&txbuf, connect, tcp_flags_ack);
-            handler(connect, TCP_ESTABLISHED);
+            (*handler)(connect, TCP_ESTABLISHED);
         }
+        if (connect->unack_seq > connect->next_seq) 
+            printf("panic here!\n");
         tcp_write_to_buf(connect, buf);
         if (buf->len) 
             tcp_send(buf, connect, tcp_flags_ack);
@@ -548,7 +551,7 @@ void tcp_in(buf_t* buf, uint8_t* src_ip) {
         */
 
         if (flags.ack) {
-            handler(connect, TCP_CONN_CLOSED);
+            (*handler)(connect, TCP_CONN_CLOSED);
             close_tcp(connect, &key);
         }
         break;
