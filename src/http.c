@@ -57,6 +57,7 @@ static size_t get_line(tcp_connect_t* tcp, char* buf, size_t size) {
                 buf[i] = c;
                 i++;
             }
+            printf("tcp rx_buf len: %d\n", tcp->rx_buf->len);
         }
         net_poll();
     }
@@ -152,6 +153,7 @@ void http_server_run(void) {
         get_line(tcp, c, 255);
         printf("success get line\n");
         if (*c == '\0') {
+            printf("get null buf\n");
             close_http(tcp);
             continue;
         }   
@@ -160,6 +162,7 @@ void http_server_run(void) {
         2、检查是否有GET请求，如果没有，则调用close_http关闭tcp，并继续循环
         */
         if (memcmp(c, "GET", 3)) {
+            printf("No GET\n");
             close_http(tcp);
             continue;
         }
@@ -168,7 +171,7 @@ void http_server_run(void) {
         /*
         3、解析GET请求的路径，注意跳过空格，找到GET请求的文件，调用send_file发送文件
         */
-
+        printf("GET!\n");
         c += 3;
         while (*c == ' ')    c++;
         memmove(url_path, c, sizeof(url_path));

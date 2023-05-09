@@ -156,6 +156,7 @@ static uint16_t tcp_read_from_buf(tcp_connect_t* connect, buf_t* buf) {
     buf_add_padding(connect->rx_buf, buf->len);
     memcpy(dst, buf->data, buf->len);
     connect->ack += buf->len;
+    printf("read from buf: %d\n", buf->len);
     return buf->len;
 }
 
@@ -469,6 +470,7 @@ void tcp_in(buf_t* buf, uint8_t* src_ip) {
 
         if (flags.ack && connect->unack_seq < ack_num32 && connect->next_seq > ack_num32) {
             buf_remove_header(buf, ack_num32 - connect->unack_seq);
+            printf("remove: %d\n", ack_num32 - connect->unack_seq);
             connect->unack_seq = ack_num32;
         }
 
