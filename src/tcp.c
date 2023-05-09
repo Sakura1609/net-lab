@@ -337,10 +337,10 @@ void tcp_in(buf_t* buf, uint8_t* src_ip) {
     */
 
     tcp_handler_t *handler = (tcp_handler_t *)map_get(&tcp_table, &dst_port16);
-    if (!handler) {
-        buf_add_header(buf, sizeof(ip_hdr_t));
-        icmp_unreachable(buf, src_ip, ICMP_CODE_PORT_UNREACH);
-    }
+    // if (!handler) {
+    //     buf_add_header(buf, sizeof(ip_hdr_t));
+    //     icmp_unreachable(buf, src_ip, ICMP_CODE_PORT_UNREACH);
+    // }
 
     /*
     5、调用new_tcp_key函数，根据通信五元组中的源IP地址、源端口号、目标端口号确定一个tcp链接key
