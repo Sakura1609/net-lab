@@ -57,7 +57,6 @@ static size_t get_line(tcp_connect_t* tcp, char* buf, size_t size) {
                 buf[i] = c;
                 i++;
             }
-            printf("tcp rx_buf len: %d\n", tcp->rx_buf->len);
         }
         net_poll();
     }
@@ -97,11 +96,24 @@ static void send_file(tcp_connect_t* tcp, const char* url) {
     */
    
    const char notfind[] = {"404 NOT FOUND\0"};
-   if (url[size] != ' ')    size++;
+   while (url[size] != ' ')    size++;
+   printf("url path size: %d\n", size);
    memmove(file_path, url, size);
+   file_path[size] = '\0';
+   if (memcmp(file_path, "/", 1) == 0) {
+        //TODO: add http header
+        strcpy(file_path, XHTTP_DOC_DIR);
+        strcat(file_path, "/index.html");
+        printf("file is:%s\n", file_path);  
+        file = fopen(file_path, "rb");
+        fread(tx_buffer, sizeof(char), 1023, file);
+        fclose(file);
+        tx_buffer[1023] = '\0';
+        http_send(tcp, tx_buffer, 1024);
+        return;
+   }
    if (memcmp(file_path, XHTTP_DOC_DIR, sizeof(XHTTP_DOC_DIR) == 0)) {
         file = fopen(file_path, "rb");
-        // 若size>1024应该如何处理？
         size = fseek(file, 0, SEEK_END);
         fread(tx_buffer, sizeof(char), size, file);
         http_send(tcp, tx_buffer, size);
